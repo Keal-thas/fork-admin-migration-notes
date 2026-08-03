@@ -41,9 +41,18 @@ HTTP). Update this file as work progresses.
     no elevated Data Pump role, only a `DIRECTORY` object with
     READ/WRITE granted to it. This sidesteps the open question about
     whether the schema-owner accounts have `DATAPUMP_EXP_FULL_DATABASE`
-    entirely. See `step1_export_salesys_salesysflow.sh` — still has a
-    few values marked for the user to confirm (exact login usernames,
-    OS directory path, host/port/service name).
+    entirely.
+  - **2026-08-04** — Confirmed `ORACLE_SID=orcl` (via `echo $ORACLE_SID`
+    after `sudo su - oracle`, already set by that user's shell profile
+    — only one instance on this box) and `DIR_PATH=/home/oracle/dumps`.
+    `step1_export_salesys_salesysflow.sh` rewritten as a manual runbook
+    (numbered copy/paste blocks, not a one-shot script — user runs each
+    command by hand) with both values filled in. Passwords are
+    intentionally left out of the file entirely: `expdp` prompts for
+    them interactively when omitted from the connect string, which
+    also avoids them showing up in shell history or `ps -ef` on this
+    shared server. Ready to run — next action is executing the 6
+    blocks in that file.
 
 ## To do (later steps, not yet started)
 
