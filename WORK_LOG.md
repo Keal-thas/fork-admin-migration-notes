@@ -64,6 +64,60 @@ HTTP). Update this file as work progresses.
     Oracle 19c instance is identified/created. They must match (or
     target must be a proper superset) or Chinese text import will
     silently corrupt/truncate with no error.
+  - **2026-08-04** — Ran the `DIRECTORY` setup: `CREATE DIRECTORY DP_DIR
+    AS '/home/oracle/dumps';` plus both `GRANT READ, WRITE` statements.
+    Confirmed executed successfully.
+  - **2026-08-04** — Started the SALESYS export. Ran long enough that
+    user checked progress via `top` mid-run (saw ~99% CPU on the Data
+    Pump worker process, expected/normal for an active export). SALESYS
+    appears to have finished (work moved on to SALESYSFLOW next) but
+    the final "Job completed" line / log was **not explicitly verified
+    in this session** — worth a quick check next time
+    (`grep -i "ORA-" .../salesys_export.log` and confirm the file size
+    looks complete, not just present).
+  - **2026-08-04 — disk-full incident.** SALESYSFLOW's export failed
+    with a "master table ... failed to load/unload" error. Root cause
+    confirmed: `df -h /home/oracle` showed the filesystem at **100%
+    used** — the SALESYS dump file alone had filled it, leaving no
+    room for SALESYSFLOW's dump to finish writing (this specific
+    partition, mounted under `/home`, is small; do not assume it has
+    headroom for large exports again in the future).
+    **Fix decided:** relocate dump output to `/opt/dumps` instead
+    (separate partition/volume with adequate free space — user
+    confirmed by checking `df -h` output directly, exact numbers not
+    recorded here). Plan handed to user, execution status **not yet
+    confirmed in this session — verify all of the below before trusting
+    it's done:**
+    1. `sudo mkdir -p /opt/dumps` + `sudo chown oracle:$(id -gn oracle)
+       /opt/dumps` — directory created with oracle-writable ownership?
+    2. `mv /home/oracle/dumps/salesys_export.dmp
+       /home/oracle/dumps/salesys_export.log /opt/dumps/` — SALESYS
+       output actually moved?
+    3. `CREATE OR REPLACE DIRECTORY DP_DIR AS '/opt/dumps';` — directory
+       object repointed? (grants carry over automatically, same object
+       name)
+    4. Leftover failed SALESYSFLOW job cleaned up? Check
+       `SELECT job_name, state FROM dba_datapump_jobs WHERE
+       owner_name = 'SALESYSFLOW';` and `DROP TABLE
+       SALESYSFLOW.<job_name>;` if a non-`EXECUTING` row exists —
+       otherwise re-running the export will hit a job-name conflict.
+    5. Old incomplete `salesysflow_export.dmp`/`.log` deleted from
+       `/home/oracle/dumps`?
+    6. SALESYSFLOW re-exported into `/opt/dumps` (`DUMPFILE=
+       salesysflow_export.dmp LOGFILE=salesysflow_export.log`), and
+       confirmed no `ORA-` errors in the log this time?
+  - **DIR_PATH is now `/opt/dumps`, not `/home/oracle/dumps`** — the
+    `step1_export_salesys_salesysflow.sh` runbook in this repo still
+    says `/home/oracle/dumps` and needs updating once the above is
+    confirmed, so it doesn't mislead anyone reading it later.
+  - **Next intended step (not started):** transfer both `.dmp` files
+    from the DB server to the user's local Windows machine via `scp`
+    (run from the local machine, pulling — not pushed from the
+    server). Flagged but unresolved: file ownership on `/opt/dumps` is
+    `oracle:<oracle's group>` — user's own SSH login account may not
+    have read permission on the dump files (`ls -l /opt/dumps` was
+    suggested to check this, result not yet reported). If unreadable,
+    `sudo chmod o+r` on both `.dmp` files is the quick fix.
 
 ## To do (later steps, not yet started)
 
@@ -72,7 +126,9 @@ HTTP). Update this file as work progresses.
    corrupt Chinese text on import, no error raised).
 2. Transfer the exported `.dmp` file(s) to the target host (any
    transfer method — it's a plain portable file, no network link
-   between source and target DB required).
+   between source and target DB required). User now wants these
+   pulled to their **local Windows machine** first via `scp`, not
+   necessarily straight to the eventual target Oracle host.
 3. On the target host: confirm an Oracle 19c instance/PDB already
    exists; create the new prefixed schema users + tablespace; run
    `impdp` with `REMAP_SCHEMA` (and `REMAP_TABLESPACE` if the

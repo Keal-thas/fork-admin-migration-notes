@@ -9,9 +9,17 @@
 # copy/paste each numbered block below one at a time on the DB server
 # (you're already SSH'd in as the oracle OS user).
 #
+# *** STALE as of 2026-08-04: DIR_PATH below is /home/oracle/dumps,
+# but that partition filled to 100% mid-export (SALESYSFLOW failed
+# with a "master table failed to load/unload" error) and the plan
+# was to move everything to /opt/dumps instead. Execution of that
+# move was NOT confirmed finished in the session that decided it --
+# see the "disk-full incident" entry in WORK_LOG.md for the full
+# recovery checklist before trusting any DIR_PATH value below. ***
+#
 # Confirmed values for this server:
 #   ORACLE_SID = orcl
-#   DIR_PATH   = /home/oracle/dumps
+#   DIR_PATH   = /home/oracle/dumps (see stale-warning above)
 #
 # Passwords are NOT written anywhere in this file. expdp prompts for
 # them interactively when you omit the password from the connect
