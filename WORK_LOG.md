@@ -19,6 +19,11 @@ HTTP). Update this file as work progresses.
   copy (DDL + DML), not an ongoing sync — data added to A after the
   copy point does not need to carry over. Both source and target DB
   environments for this copy are non-production.
+- **2026-08-03** — Checked app code and DB-stored code for hardcoded
+  schema-qualified references (`SALESYS.` / `SALESYSFLOW.`) — none
+  found, all references are unqualified (rely on the connected user's
+  default schema). This means the target-side schema rename (prefix)
+  is safe and won't break any SQL/MyBatis mappers.
 
 ## In progress
 
@@ -42,35 +47,28 @@ HTTP). Update this file as work progresses.
 
 ## To do (later steps, not yet started)
 
-1. Check for hardcoded schema-qualified references (`SALESYS.` /
-   `SALESYSFLOW.`) in app code (Java / MyBatis XML / MyBatis-Plus
-   annotations) and in DB-stored code (procedures/triggers/views) —
-   see `check_hardcoded_schema_refs.sh` and
-   `check_hardcoded_schema_refs.sql`. Matters because the target import
-   renames both schemas with a prefix (user's example: `afogadmin_`,
-   not yet confirmed as final).
-2. Verify `NLS_CHARACTERSET` matches between source and target Oracle
+1. Verify `NLS_CHARACTERSET` matches between source and target Oracle
    instances before importing (mismatched character sets silently
    corrupt Chinese text on import, no error raised).
-3. Transfer the exported `.dmp` file(s) to the target host (any
+2. Transfer the exported `.dmp` file(s) to the target host (any
    transfer method — it's a plain portable file, no network link
    between source and target DB required).
-4. On the target host: confirm an Oracle 19c instance/PDB already
+3. On the target host: confirm an Oracle 19c instance/PDB already
    exists; create the new prefixed schema users + tablespace; run
    `impdp` with `REMAP_SCHEMA` (and `REMAP_TABLESPACE` if the
    tablespace names differ between source and target).
-5. Post-import: run `utlrp.sql` to recompile invalid objects, spot
+4. Post-import: run `utlrp.sql` to recompile invalid objects, spot
    check row counts against the source, then repoint system B's
    datasource config (host/port/service name, username/password) at
    the new schema users so it runs fully independent of system A's
    database.
-6. Hide all menus in system B except the 2 required ones, via the menu
+5. Hide all menus in system B except the 2 required ones, via the menu
    table's visibility flag (not deletion) — keep ancestor nodes of the
    2 kept menus visible too. User is handling this directly; also
    decide whether hiding needs to be paired with removing the
    corresponding role-menu permission mappings if API-level blocking
    (not just UI hiding) is required.
-7. Audit and disable Redis, MQ, XXL-Job, any plain `@Scheduled` tasks,
+6. Audit and disable Redis, MQ, XXL-Job, any plain `@Scheduled` tasks,
    and all outbound HTTP calls (including OCR). Since the code was
    copied wholesale from system A, the real risk is the app still
    trying to reach these services in the new environment and failing —
