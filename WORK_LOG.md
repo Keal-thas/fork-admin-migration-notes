@@ -53,6 +53,17 @@ HTTP). Update this file as work progresses.
     also avoids them showing up in shell history or `ps -ef` on this
     shared server. Ready to run — next action is executing the 6
     blocks in that file.
+  - **2026-08-04** — Checked source DB's `NLS_CHARACTERSET` ahead of
+    schedule (this is really step 1 of the "to do" list below, but
+    source side was easy to check while already SSH'd in):
+    ```sql
+    SELECT parameter, value FROM nls_database_parameters WHERE parameter = 'NLS_CHARACTERSET';
+    ```
+    Source (`SALESYS`/`SALESYSFLOW`'s DB) returned `ZHS16GBK`. Target
+    side still unchecked — needs the same query once the target
+    Oracle 19c instance is identified/created. They must match (or
+    target must be a proper superset) or Chinese text import will
+    silently corrupt/truncate with no error.
 
 ## To do (later steps, not yet started)
 
