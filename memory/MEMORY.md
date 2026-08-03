@@ -1,0 +1,4 @@
+- [fork-admin project overview](project_fork_admin_overview.md) — A→B fork: menu allowlist, Oracle 19c migration, disable Redis/MQ/XXL-Job/outbound HTTP
+- [Restricted-machine AI tooling setup](project_fork_admin_restricted_machine_setup.md) — opencode+Qwen setup copied in for the no-internet target machine
+- [Flag placeholders before writing them](feedback_flag_placeholders.md) — always confirm real values instead of leaving generic stand-ins in scripts/configs
+- [Explicit commands on shared servers](feedback_explicit_commands_shared_servers.md) — no parfiles/env-var reliance when a box is used by more than one person
