@@ -21,16 +21,46 @@ ORDER BY owner, name, line;
 -- 视图(ALL_SOURCE 不包含视图定义,需要单独查 ALL_VIEWS)
 -- Views (ALL_SOURCE does not include view definitions, check separately)
 --
--- 注意:ALL_VIEWS.TEXT 是 LONG 类型,Oracle 不允许对 LONG 列直接用
--- UPPER() 这类函数(会报 ORA-00932: inconsistent datatypes),所以
--- 这里不包 UPPER(),直接用 LIKE 分别匹配大小写变体(LIKE 本身可以
--- 直接作用在 LONG 列上)。
--- Note: ALL_VIEWS.TEXT is a LONG column -- Oracle does not allow
--- applying a function like UPPER() directly to a LONG column (raises
--- ORA-00932: inconsistent datatypes), so this skips UPPER() and
--- matches case variants directly with LIKE instead (LIKE itself can
--- be applied to a LONG column).
-SELECT owner, view_name, text
-FROM all_views
-WHERE text LIKE '%SALESYS.%' OR text LIKE '%salesys.%'
-   OR text LIKE '%SALESYSFLOW.%' OR text LIKE '%salesysflow.%';
+-- 注意:ALL_VIEWS.TEXT 是 LONG 类型。Oracle 规定 LONG 列根本不能出现
+-- 在 WHERE 子句里 -- 不只是不能包函数(UPPER 会报 ORA-00932),连
+-- 裸的 `WHERE text LIKE ...` 也一样不行(这是 LONG 类型本身的限制,
+-- 不是函数的问题)。唯一的绕过办法:把 LONG 的值 SELECT INTO 一个
+-- PL/SQL 的 VARCHAR2 变量 -- 赋值不受这条限制,只有 SQL 语句的
+-- WHERE/函数才受限 -- 然后在 PL/SQL 里做字符串匹配,不在 SQL 里做。
+-- Note: ALL_VIEWS.TEXT is a LONG column. Oracle does not allow a LONG
+-- column in a WHERE clause AT ALL -- not just wrapped in a function
+-- (UPPER raises ORA-00932), a bare `WHERE text LIKE ...` fails too
+-- (this is a restriction on the LONG type itself, not on functions).
+-- The only way around it: SELECT the LONG value INTO a PL/SQL
+-- VARCHAR2 variable -- assignment isn't subject to this restriction,
+-- only a SQL statement's WHERE/functions are -- then do the string
+-- match in PL/SQL instead of in SQL.
+
+SET SERVEROUTPUT ON SIZE UNLIMITED
+
+DECLARE
+  v_text all_views.text%TYPE;
+BEGIN
+  FOR rec IN (SELECT owner, view_name FROM all_views) LOOP
+    BEGIN
+      -- 把这一个视图的 LONG 定义读进变量(逐行/逐视图读,不在 WHERE 里筛)
+      -- Read this one view's LONG definition into a variable (per-view,
+      -- not filtered in a WHERE clause)
+      SELECT text INTO v_text
+      FROM all_views
+      WHERE owner = rec.owner AND view_name = rec.view_name;
+
+      IF UPPER(v_text) LIKE '%SALESYS.%' OR UPPER(v_text) LIKE '%SALESYSFLOW.%' THEN
+        DBMS_OUTPUT.PUT_LINE(rec.owner || '.' || rec.view_name);
+      END IF;
+    EXCEPTION
+      -- 极少数视图定义超过 32767 字符会放不进 VARCHAR2,跳过并提示,
+      -- 而不是让整个循环中断。
+      -- The rare view definition longer than 32767 chars won't fit in
+      -- VARCHAR2 -- skip it with a note instead of aborting the loop.
+      WHEN VALUE_ERROR THEN
+        DBMS_OUTPUT.PUT_LINE('SKIPPED (too long to check): ' || rec.owner || '.' || rec.view_name);
+    END;
+  END LOOP;
+END;
+/
