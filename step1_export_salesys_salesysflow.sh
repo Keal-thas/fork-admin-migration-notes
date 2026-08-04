@@ -17,24 +17,22 @@
 # copy/paste each numbered block below one at a time on the DB server
 # (you're already SSH'd in as the oracle OS user).
 #
-# *** 截至 2026-08-04 已过期:下面的 DIR_PATH 还是 /home/oracle/dumps,
-# 但那个分区导出到一半就写满了 100%(SALESYSFLOW 导出失败,报
-# "master table failed to load/unload"),当时定的计划是把所有东西
-# 挪到 /opt/dumps。这个挪动动作在做决定的那次会话里**没有确认执行
-# 完成** -- 用下面任何 DIR_PATH 值之前,先看 WORK_LOG.md 里
-# "disk-full incident" 那条完整的恢复清单。 ***
-# *** STALE as of 2026-08-04: DIR_PATH below is /home/oracle/dumps,
-# but that partition filled to 100% mid-export (SALESYSFLOW failed
-# with a "master table failed to load/unload" error) and the plan
-# was to move everything to /opt/dumps instead. Execution of that
-# move was NOT confirmed finished in the session that decided it --
-# see the "disk-full incident" entry in WORK_LOG.md for the full
-# recovery checklist before trusting any DIR_PATH value below. ***
+# *** 2026-08-04 已完成:两个 schema 都已成功导出到 /opt/dumps,两份
+# 日志确认无 ORA- 报错(之前 /home/oracle/dumps 分区写满导致
+# SALESYSFLOW 导出失败一次,已恢复并挪到 /opt/dumps 重新导出成功)。
+# 保留此文件作为该步骤的记录,后续如需在别的服务器/别的 schema 上
+# 重复同样的操作,可参考。 ***
+# *** DONE as of 2026-08-04: both schemas exported successfully to
+# /opt/dumps, both logs confirmed no ORA- errors (an earlier attempt
+# failed when /home/oracle/dumps filled up mid-export; recovered by
+# moving everything to /opt/dumps and re-running). Kept here as a
+# record of this step / reusable reference for repeating the same
+# export elsewhere. ***
 #
 # 本服务器已确认的值:
 # Confirmed values for this server:
 #   ORACLE_SID = orcl
-#   DIR_PATH   = /home/oracle/dumps(见上面的过期警告 / see stale-warning above)
+#   DIR_PATH   = /opt/dumps
 #
 # 密码不会写在这个文件里的任何地方。connect string 里不带密码时,
 # expdp 会交互式提示输入 -- 这样密码既不会留在 shell 历史里,也不会
@@ -51,14 +49,16 @@
 #    (400+ tables combined across both schemas).
 # ------------------------------------------------------------------
 
-df -h /home/oracle
+df -h /opt/dumps
 
 # ------------------------------------------------------------------
-# 1. 创建 OS 目录(如果已存在则跳过)。
-#    Create the OS directory (skip if it already exists).
+# 1. 创建 OS 目录(如果已存在则跳过),并确保 oracle 用户可写。
+#    Create the OS directory (skip if it already exists), and make
+#    sure it's writable by the oracle user.
 # ------------------------------------------------------------------
 
-mkdir -p /home/oracle/dumps
+sudo mkdir -p /opt/dumps
+sudo chown oracle:$(id -gn oracle) /opt/dumps
 
 # ------------------------------------------------------------------
 # 2. 一次性的数据库设置:创建 Oracle DIRECTORY 对象,并把两个 schema
@@ -71,7 +71,7 @@ mkdir -p /home/oracle/dumps
 # ------------------------------------------------------------------
 
 sqlplus -s / as sysdba <<'SQL'
-CREATE DIRECTORY DP_DIR AS '/home/oracle/dumps';
+CREATE DIRECTORY DP_DIR AS '/opt/dumps';
 GRANT READ, WRITE ON DIRECTORY DP_DIR TO SALESYS;
 GRANT READ, WRITE ON DIRECTORY DP_DIR TO SALESYSFLOW;
 EXIT;
@@ -99,5 +99,5 @@ ORACLE_SID=orcl expdp SALESYSFLOW DIRECTORY=DP_DIR DUMPFILE=salesysflow_export.d
 #    shows an ORA- error.
 # ------------------------------------------------------------------
 
-ls -lh /home/oracle/dumps
-grep -i "ORA-" /home/oracle/dumps/salesys_export.log /home/oracle/dumps/salesysflow_export.log
+ls -lh /opt/dumps
+grep -i "ORA-" /opt/dumps/salesys_export.log /opt/dumps/salesysflow_export.log
