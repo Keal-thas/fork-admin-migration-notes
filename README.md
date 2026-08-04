@@ -18,6 +18,9 @@ services (Redis/MQ/XXL-Job/outbound HTTP).
   in app code and in DB-stored code, before renaming either schema.
 - `step1_export_salesys_salesysflow.sh` — Data Pump export step for the
   Oracle copy.
+- `step3_import_target.sh` — Data Pump import step on the target host
+  (creates the new `HR_`-prefixed schemas via `REMAP_SCHEMA`). Several
+  values are still unconfirmed placeholders — see the file header.
 - `memory/` — a copy of this project's Claude Code cross-session memory
   files (kept here too so the context isn't only sitting on one local
   machine).

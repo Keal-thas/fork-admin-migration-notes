@@ -77,23 +77,32 @@ HTTP). Update this file as work progresses.
 1. Verify `NLS_CHARACTERSET` matches between source (`ZHS16GBK`,
    confirmed) and target Oracle instances before importing (mismatched
    character sets silently corrupt Chinese text on import, no error
-   raised). Target side not yet checked.
-2. On the target host: confirm an Oracle 19c instance/PDB already
-   exists; create the new prefixed schema users + tablespace; run
-   `impdp` with `REMAP_SCHEMA` (and `REMAP_TABLESPACE` if the
-   tablespace names differ between source and target).
-3. Post-import: run `utlrp.sql` to recompile invalid objects, spot
-   check row counts against the source, then repoint system B's
-   datasource config (host/port/service name, username/password) at
-   the new schema users so it runs fully independent of system A's
-   database.
-4. Hide all menus in system B except the 2 required ones, via the menu
+   raised). Target side not yet checked — included as step 1 in
+   `step3_import_target.sh`.
+2. **Schema prefix confirmed: `HR_`** (target schemas will be
+   `HR_SALESYS` / `HR_SALESYFLOW`; the earlier `afogadmin_` in the
+   memory notes was only ever an example, not the final value).
+3. On the target host: confirm an Oracle 19c instance/PDB already
+   exists; create the new `HR_`-prefixed schema users + tablespace;
+   run `impdp` with `REMAP_SCHEMA` (and `REMAP_TABLESPACE` if the
+   tablespace names differ between source and target). Drafted as
+   `step3_import_target.sh` — **still has unconfirmed placeholders**:
+   target host/`ORACLE_SID`, target-side directory to hold the `.dmp`
+   files, and whether a dedicated tablespace gets created (vs. using
+   `USERS`). Fill those in before running it.
+4. Post-import: spot check row counts against the source, then repoint
+   system B's datasource config (host/port/service name,
+   username/password) at the new schema users so it runs fully
+   independent of system A's database. (Recompiling invalid objects
+   via `utlrp.sql` is already folded into the end of
+   `step3_import_target.sh`.)
+5. Hide all menus in system B except the 2 required ones, via the menu
    table's visibility flag (not deletion) — keep ancestor nodes of the
    2 kept menus visible too. User is handling this directly; also
    decide whether hiding needs to be paired with removing the
    corresponding role-menu permission mappings if API-level blocking
    (not just UI hiding) is required.
-5. Audit and disable Redis, MQ, XXL-Job, any plain `@Scheduled` tasks,
+6. Audit and disable Redis, MQ, XXL-Job, any plain `@Scheduled` tasks,
    and all outbound HTTP calls (including OCR). Since the code was
    copied wholesale from system A, the real risk is the app still
    trying to reach these services in the new environment and failing —
