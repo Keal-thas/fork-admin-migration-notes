@@ -21,46 +21,35 @@ ORDER BY owner, name, line;
 -- 视图(ALL_SOURCE 不包含视图定义,需要单独查 ALL_VIEWS)
 -- Views (ALL_SOURCE does not include view definitions, check separately)
 --
--- 注意:ALL_VIEWS.TEXT 是 LONG 类型。Oracle 规定 LONG 列根本不能出现
--- 在 WHERE 子句里 -- 不只是不能包函数(UPPER 会报 ORA-00932),连
--- 裸的 `WHERE text LIKE ...` 也一样不行(这是 LONG 类型本身的限制,
--- 不是函数的问题)。唯一的绕过办法:把 LONG 的值 SELECT INTO 一个
--- PL/SQL 的 VARCHAR2 变量 -- 赋值不受这条限制,只有 SQL 语句的
--- WHERE/函数才受限 -- 然后在 PL/SQL 里做字符串匹配,不在 SQL 里做。
--- Note: ALL_VIEWS.TEXT is a LONG column. Oracle does not allow a LONG
--- column in a WHERE clause AT ALL -- not just wrapped in a function
--- (UPPER raises ORA-00932), a bare `WHERE text LIKE ...` fails too
--- (this is a restriction on the LONG type itself, not on functions).
--- The only way around it: SELECT the LONG value INTO a PL/SQL
--- VARCHAR2 variable -- assignment isn't subject to this restriction,
--- only a SQL statement's WHERE/functions are -- then do the string
--- match in PL/SQL instead of in SQL.
+-- 注意:ALL_VIEWS.TEXT 是 LONG 类型,LONG 列不能出现在 WHERE 子句里
+-- (裸 LIKE 也不行,不只是函数的问题)。这里用 Oracle 自带的 TO_LOB()
+-- 做类型转换,把 LONG 转成 CLOB 存进一张临时表 -- TO_LOB() 只能用在
+-- INSERT ... SELECT 里,不能直接写在普通 SELECT 的 WHERE 里,所以要
+-- 先转存。转成 CLOB 之后,WHERE/UPPER()/LIKE 就都能正常用了。
+-- Note: ALL_VIEWS.TEXT is a LONG column, and LONG columns can't appear
+-- in a WHERE clause at all (a bare LIKE fails too, not just a
+-- function). This uses Oracle's built-in TO_LOB() to convert LONG to
+-- CLOB into a scratch table -- TO_LOB() only works inside an
+-- INSERT ... SELECT, not directly in a plain SELECT's WHERE, so it
+-- has to land in a table first. Once it's a CLOB, WHERE/UPPER()/LIKE
+-- all work normally.
 
-SET SERVEROUTPUT ON SIZE UNLIMITED
+CREATE TABLE tmp_view_text_check (
+  owner     VARCHAR2(128),
+  view_name VARCHAR2(128),
+  view_text CLOB
+);
 
-DECLARE
-  v_text all_views.text%TYPE;
-BEGIN
-  FOR rec IN (SELECT owner, view_name FROM all_views) LOOP
-    BEGIN
-      -- 把这一个视图的 LONG 定义读进变量(逐行/逐视图读,不在 WHERE 里筛)
-      -- Read this one view's LONG definition into a variable (per-view,
-      -- not filtered in a WHERE clause)
-      SELECT text INTO v_text
-      FROM all_views
-      WHERE owner = rec.owner AND view_name = rec.view_name;
+INSERT INTO tmp_view_text_check (owner, view_name, view_text)
+SELECT owner, view_name, TO_LOB(text)
+FROM all_views;
 
-      IF UPPER(v_text) LIKE '%SALESYS.%' OR UPPER(v_text) LIKE '%SALESYSFLOW.%' THEN
-        DBMS_OUTPUT.PUT_LINE(rec.owner || '.' || rec.view_name);
-      END IF;
-    EXCEPTION
-      -- 极少数视图定义超过 32767 字符会放不进 VARCHAR2,跳过并提示,
-      -- 而不是让整个循环中断。
-      -- The rare view definition longer than 32767 chars won't fit in
-      -- VARCHAR2 -- skip it with a note instead of aborting the loop.
-      WHEN VALUE_ERROR THEN
-        DBMS_OUTPUT.PUT_LINE('SKIPPED (too long to check): ' || rec.owner || '.' || rec.view_name);
-    END;
-  END LOOP;
-END;
-/
+COMMIT;
+
+SELECT owner, view_name
+FROM tmp_view_text_check
+WHERE UPPER(view_text) LIKE '%SALESYS.%' OR UPPER(view_text) LIKE '%SALESYSFLOW.%';
+
+-- 查完记得删掉这张临时表。
+-- Drop the scratch table once you're done checking.
+DROP TABLE tmp_view_text_check PURGE;
