@@ -20,6 +20,17 @@ ORDER BY owner, name, line;
 
 -- 视图(ALL_SOURCE 不包含视图定义,需要单独查 ALL_VIEWS)
 -- Views (ALL_SOURCE does not include view definitions, check separately)
+--
+-- 注意:ALL_VIEWS.TEXT 是 LONG 类型,Oracle 不允许对 LONG 列直接用
+-- UPPER() 这类函数(会报 ORA-00932: inconsistent datatypes),所以
+-- 这里不包 UPPER(),直接用 LIKE 分别匹配大小写变体(LIKE 本身可以
+-- 直接作用在 LONG 列上)。
+-- Note: ALL_VIEWS.TEXT is a LONG column -- Oracle does not allow
+-- applying a function like UPPER() directly to a LONG column (raises
+-- ORA-00932: inconsistent datatypes), so this skips UPPER() and
+-- matches case variants directly with LIKE instead (LIKE itself can
+-- be applied to a LONG column).
 SELECT owner, view_name, text
 FROM all_views
-WHERE UPPER(text) LIKE '%SALESYS.%' OR UPPER(text) LIKE '%SALESYSFLOW.%';
+WHERE text LIKE '%SALESYS.%' OR text LIKE '%salesys.%'
+   OR text LIKE '%SALESYSFLOW.%' OR text LIKE '%salesysflow.%';
