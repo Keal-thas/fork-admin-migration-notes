@@ -8,7 +8,7 @@ services (Redis/MQ/XXL-Job/outbound HTTP).
 ## Contents
 
 - `WORK_LOG.md` — running record of what's done and what's left.
-- `cross_schema_dependency_check.sql` — three queries to check whether
+- `check_cross_schema_dependency.sql` — three queries to check whether
   two Oracle schemas have cross-schema foreign keys, synonyms, or any
   other object-level dependency (views/procedures/triggers referencing
   the other schema), before deciding whether they can be exported /

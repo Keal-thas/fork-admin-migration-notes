@@ -11,7 +11,7 @@ HTTP). Update this file as work progresses.
 - **2026-08-03** — Confirmed the two Oracle schemas: `SALESYS` and
   `SALESYSFLOW`.
 - **2026-08-03** — Ran the cross-schema dependency check
-  (`cross_schema_dependency_check.sql`) — zero rows returned for
+  (`check_cross_schema_dependency.sql`) — zero rows returned for
   foreign keys, synonyms, and `all_dependencies` in both directions.
   The two schemas have no cross-references; they can be
   exported/imported independently.
