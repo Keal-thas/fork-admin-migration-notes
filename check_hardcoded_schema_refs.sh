@@ -20,9 +20,11 @@ SRC_DIR=/path/to/project/source
 # ------------------------------------------------------------------
 # 2. 执行搜索:只看 .java / .xml / .sql / .yml / .yaml / .properties
 #    文件里的 SALESYS. 或 SALESYSFLOW. 引用(不区分大小写)。
+#    排除 local 目录(本地/临时文件,不属于应用源码)。
 #    Run the search: only .java / .xml / .sql / .yml / .yaml /
 #    .properties files, matching SALESYS. or SALESYSFLOW. (case
-#    insensitive).
+#    insensitive). Excludes the "local" directory (local/scratch
+#    files that aren't part of the application source).
 # ------------------------------------------------------------------
 
-grep -rniE --include='*.java' --include='*.xml' --include='*.sql' --include='*.yml' --include='*.yaml' --include='*.properties' '\b(SALESYS|SALESYSFLOW)\.' "$SRC_DIR"
+grep -rniE --exclude-dir='local' --include='*.java' --include='*.xml' --include='*.sql' --include='*.yml' --include='*.yaml' --include='*.properties' '\b(SALESYS|SALESYSFLOW)\.' "$SRC_DIR"
